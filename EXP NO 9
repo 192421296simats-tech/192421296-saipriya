@@ -1,0 +1,30 @@
+import cv2
+
+image = cv2.imread("image.jpg")
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+
+
+(h, w) = image.shape[:2]
+
+center = (w // 2, h // 2)
+
+clockwise_matrix = cv2.getRotationMatrix2D(center, -90, 1.0)
+clockwise = cv2.warpAffine(image, clockwise_matrix, (w, h))
+
+
+counter_matrix = cv2.getRotationMatrix2D(center, 90, 1.0)
+counter = cv2.warpAffine(image, counter_matrix, (w, h))
+
+cv2.imshow("Original Image", image)
+cv2.imshow("Clockwise Rotation", clockwise)
+cv2.imshow("Counter Clockwise Rotation", counter)
+
+
+cv2.imwrite("clockwise.jpg", clockwise)
+cv2.imwrite("counter_clockwise.jpg", counter)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
