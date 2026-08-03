@@ -1,0 +1,43 @@
+import cv2
+import numpy as np
+
+
+image = cv2.imread("building.jpg")
+
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+
+
+rows, cols = image.shape[:2]
+
+ # Source points (corners of the original image)
+pts1 = np.float32([
+    [50, 50],
+    [cols - 50, 50],
+    [50, rows - 50],
+    [cols - 50, rows - 50]
+])
+
+pts2 = np.float32([
+    [0, 0],
+    [cols, 0],
+    [100, rows],
+    [cols - 100, rows]
+])
+
+
+matrix = cv2.getPerspectiveTransform(pts1, pts2)
+
+output = cv2.warpPerspective(image, matrix, (cols, rows))
+
+
+cv2.imshow("Original Image", image)
+cv2.imshow("Perspective Transformation", output)
+
+
+cv2.imwrite("perspective_output.jpg", output)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
