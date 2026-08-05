@@ -1,0 +1,36 @@
+import numpy as np
+
+image = cv2.imread("building.jpg")
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+
+height, width = image.shape[:2]
+
+src_points = np.float32([
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1]
+])
+
+
+dst_points = np.float32([
+    [100, 50],
+    [width - 100, 0],
+    [50, height - 50],
+    [width - 50, height - 100]
+])
+
+H, status = cv2.findHomography(src_points, dst_points)
+
+output = cv2.warpPerspective(image, H, (width, height))
+
+cv2.imshow("Original Image", image)
+cv2.imshow("Homography Transformation", output)
+
+cv2.imwrite("homography_output.jpg", output)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
