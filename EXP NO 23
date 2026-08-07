@@ -1,0 +1,13 @@
+import cv2
+image = cv2.imread("building.jpg")
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+blurred = cv2.GaussianBlur(image, (5, 5), 0)
+sharpened = cv2.addWeighted(image, 1.5, blurred, -0.5, 0)
+cv2.imshow("Original Image", image)
+cv2.imshow("Unsharp Masked Image", sharpened)
+cv2.imwrite("unsharp_output.jpg", sharpened)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
