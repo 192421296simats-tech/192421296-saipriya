@@ -1,0 +1,19 @@
+import cv2
+import numpy as np
+image = cv2.imread("building.jpg")
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+kernel = np.array([
+    [1,  1, 1],
+    [1, -8, 1],
+    [1,  1, 1]
+], dtype=np.float32)
+laplacian = cv2.filter2D(image, cv2.CV_32F, kernel)
+sharpened = cv2.convertScaleAbs(image - laplacian)
+cv2.imshow("Original Image", image)
+cv2.imshow("Sharpened Image", sharpened)
+cv2.imwrite("laplacian_sharpened.jpg", sharpened)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
