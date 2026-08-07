@@ -1,0 +1,55 @@
+import cv2
+import numpy as np
+image = cv2.imread("building.jpg")
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+
+height, width = image.shape[:2]
+
+src = np.float32([
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1]
+])
+
+dst = np.float32([
+    [100, 50],
+    [width - 100, 0],
+    [50, height - 50],
+    [width - 50, height - 100]
+])
+
+A = []
+
+for i in range(4):
+    x, y = src[i]
+    u, v = dst[i]
+
+    A.append([-x, -y, -1, 0, 0, 0, x*u, y*u, u])
+    A.append([0, 0, 0, -x, -y, -1, x*v, y*v, v])
+
+A = np.array(A)
+
+U, S, Vt = np.linalg.svd(A)
+
+H = Vt[-1].reshape(3, 3)
+
+H = H / H[2, 2]
+
+print("DLT Transformation Matrix:")
+print(H)
+
+
+output = cv2.warpPerspective(image, H, (width, height))
+
+
+cv2.imshow("Original Image", image)
+cv2.imshow("DLT Transformed Image", output)
+
+cv2.imwrite("dlt_output.jpg", output)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
