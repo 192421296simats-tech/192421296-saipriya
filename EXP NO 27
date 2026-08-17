@@ -1,0 +1,37 @@
+import cv2
+
+image = cv2.imread("building.jpg")
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+height, width = image.shape[:2]
+
+crop = image[50:200, 50:200]
+
+cv2.imwrite("cropped_output.jpg", crop)
+
+
+copied = crop.copy()
+
+
+x = 250
+y = 50
+
+h, w = copied.shape[:2]
+
+if y + h <= height and x + w <= width:
+
+    image[y:y+h, x:x+w] = copied
+
+else:
+    print("Error: Paste position is outside the image")
+    exit()
+
+cv2.imshow("Cropped Image", crop)
+cv2.imshow("Copy and Paste Result", image)
+
+cv2.imwrite("copy_paste_output.jpg", image)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
