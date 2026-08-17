@@ -1,0 +1,39 @@
+import cv2
+
+image = cv2.imread("building.jpg")
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+
+text = "COMPUTER VISION"
+
+position = (30, 50)
+font = cv2.FONT_HERSHEY_SIMPLEX
+
+font_scale = 1
+
+
+color = (255, 255, 255)
+
+thickness = 2
+
+cv2.putText(
+    image,
+    text,
+    position,
+    font,
+    font_scale,
+    color,
+    thickness,
+    cv2.LINE_AA
+)
+
+
+cv2.imshow("Watermarked Image", image)
+
+
+cv2.imwrite("watermarked_output.jpg", image)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
