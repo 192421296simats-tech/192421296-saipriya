@@ -1,0 +1,43 @@
+import cv2
+import numpy as np
+
+image = cv2.imread("building.jpg")
+
+if image is None:
+    print("Error: Cannot load image")
+    exit()
+
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+
+gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+gradient = cv2.magnitude(gx, gy)
+
+gradient = cv2.normalize(
+    gradient,
+    None,
+    0,
+    1,
+    cv2.NORM_MINMAX
+)
+
+mask = cv2.merge([gradient, gradient, gradient])
+
+image_float = image.astype(np.float32) / 255.0
+
+sharpened = image_float + (image_float * mask)
+
+sharpened = np.clip(sharpened, 0, 1)
+
+sharpened = (sharpened * 255).astype(np.uint8)
+
+cv2.imshow("Original Image", image)
+cv2.imshow("Gradient Masking Sharpened Image", sharpened)
+
+
+cv2.imwrite("gradient_masking_output.jpg", sharpened)
+
+cv2.waitKey(0)
+
+cv2.destroyAllWindows()
