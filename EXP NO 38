@@ -1,0 +1,46 @@
+import cv2
+import os
+folder = os.path.dirname(os.path.abspath(__file__))
+input_path = os.path.join(folder, "face.jpg")
+output_path = os.path.join(folder, "face_detection_output.jpg")
+img = cv2.imread(input_path)
+
+if img is None:
+    print("Error: Could not read face.jpg")
+    print("File path:", input_path)
+    exit()
+
+face_cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
+
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+faces = face_cascade.detectMultiScale(
+    gray,
+    scaleFactor=1.1,
+    minNeighbors=5,
+    minSize=(30, 30)
+)
+
+for (x, y, w, h) in faces:
+    cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    cv2.putText(
+        img,
+        "Face",
+        (x, y - 10),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 255, 0),
+        2
+    )
+
+print("Number of faces detected:", len(faces))
+cv2.imwrite(output_path, img)
+
+print("Output saved to:")
+print(output_path)
+
+cv2.imshow("Face Detection", img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
