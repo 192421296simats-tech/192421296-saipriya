@@ -1,0 +1,119 @@
+import cv2
+
+# Input video
+input_video = "road.mp4"
+
+# Open video
+cap = cv2.VideoCapture(input_video)
+
+if not cap.isOpened():
+    print("Error: road.mp4 not found!")
+    exit()
+
+# Video properties
+fps = cap.get(cv2.CAP_PROP_FPS)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+if fps == 0:
+    fps = 30
+
+# Output video
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+out = cv2.VideoWriter(
+    "vehicle_detection_output.mp4",
+    fourcc,
+    fps,
+    (width, height)
+)
+
+# Background subtractor
+background = cv2.createBackgroundSubtractorMOG2(
+    history=500,
+    varThreshold=50,
+    detectShadows=True
+)
+
+while True:
+    ret, frame = cap.read()
+
+    if not ret:
+        break
+
+    # Detect moving objects
+    mask = background.apply(frame)
+
+    # Remove shadows
+    _, mask = cv2.threshold(mask, 200, 255, cv2.THRESH_BINARY)
+
+    # Remove noise
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT, (5, 5)
+    )
+    mask = cv2.morphologyEx(
+        mask, cv2.MORPH_OPEN, kernel
+    )
+    mask = cv2.dilate(mask, kernel, iterations=2)
+
+    # Find objects
+    contours, _ = cv2.findContours(
+        mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    vehicle_count = 0
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+
+        if area > 800:
+            x, y, w, h = cv2.boundingRect(contour)
+
+            # Draw bounding box
+            cv2.rectangle(
+                frame,
+                (x, y),
+                (x + w, y + h),
+                (0, 255, 0),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                "Vehicle",
+                (x, y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2
+            )
+
+            vehicle_count += 1
+
+    # Display count
+    cv2.putText(
+        frame,
+        "Vehicles: " + str(vehicle_count),
+        (20, 40),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (0, 0, 255),
+        2
+    )
+
+    # Save frame to output video
+    out.write(frame)
+
+    # Display
+    cv2.imshow("Vehicle Detection", frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:
+        break
+
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+
+print("Vehicle detection completed!")
+print("Output saved as: vehicle_detection_output.mp4")
