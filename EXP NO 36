@@ -1,0 +1,53 @@
+import cv2
+img = cv2.imread("input.jpg")
+
+if img is None:
+    print("Error: input.jpg not found!")
+    exit()
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+gray = cv2.GaussianBlur(gray, (9, 9), 2)
+
+circles = cv2.HoughCircles(
+    gray,
+    cv2.HOUGH_GRADIENT,
+    dp=1.2,
+    minDist=50,
+    param1=100,
+    param2=40,
+    minRadius=20,
+    maxRadius=200
+)
+
+if circles is not None:
+    circles = circles[0]
+
+    circle = max(circles, key=lambda x: x[2])
+
+    x, y, r = map(int, circle)
+    cv2.circle(img, (x, y), r, (0, 255, 0), 3)
+    cv2.circle(img, (x, y), 3, (0, 0, 255), -1)
+
+    cv2.putText(
+        img,
+        "Watch Detected",
+        (x - r, y - r - 10),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 255, 0),
+        2
+    )
+
+    print("Watch detected!")
+
+else:
+    print("Watch not detected.")
+
+cv2.imwrite("watch_output.jpg", img)
+
+print("Output saved as: watch_output.jpg")
+
+cv2.imshow("Watch Recognition", img)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
