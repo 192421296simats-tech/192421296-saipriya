@@ -1,0 +1,44 @@
+import cv2
+
+# Read input image
+img = cv2.imread("input.jpg")
+
+if img is None:
+    print("Error: input.jpg not found!")
+    exit()
+
+# Draw rectangle coordinates
+x = 100
+y = 80
+w = 300
+h = 300
+
+# Draw rectangle on original image
+result = img.copy()
+
+cv2.rectangle(
+    result,
+    (x, y),
+    (x + w, y + h),
+    (0, 255, 0),
+    2
+)
+
+# Extract object inside rectangle
+object_img = img[y:y + h, x:x + w]
+
+# Save results
+cv2.imwrite("rectangle_output.jpg", result)
+cv2.imwrite("extracted_object.jpg", object_img)
+
+print("Rectangle drawn successfully!")
+print("Object extracted successfully!")
+print("Output saved as: rectangle_output.jpg")
+print("Extracted object saved as: extracted_object.jpg")
+
+# Display
+cv2.imshow("Rectangular Object", result)
+cv2.imshow("Extracted Object", object_img)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
