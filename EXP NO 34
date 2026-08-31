@@ -1,0 +1,22 @@
+import cv2
+import numpy as np
+
+img = cv2.imread("input.jpg", 0)
+
+if img is None:
+    print("Error: input.jpg not found!")
+    exit()
+
+kernel = np.ones((5, 5), np.uint8)
+tophat = cv2.morphologyEx(img, cv2.MORPH_TOPHAT, kernel)
+
+cv2.imwrite("tophat_output.jpg", tophat)
+
+print("Top Hat operation completed!")
+print("Output saved as: tophat_output.jpg")
+
+cv2.imshow("Original Image", img)
+cv2.imshow("Top Hat", tophat)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
