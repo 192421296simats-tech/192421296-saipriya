@@ -1,0 +1,254 @@
+import argparse
+import csv
+import os
+import time
+from collections import Counter
+
+import cv2
+import numpy as np
+from ultralytics import YOLO
+
+# COCO classes relevant to campus/traffic monitoring
+TARGET_CLASSES = {
+"person", "bicycle", "car", "motorcycle",
+"bus", "truck"
+}
+
+def enhance_image(frame):
+"""Improve local contrast and reduce noise."""
+lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+l, a, b = cv2.split(lab)
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+l = clahe.apply(l)
+enhanced = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
+enhanced = cv2.GaussianBlur(enhanced, (5, 5), 0)
+return enhanced
+
+def traditional_processing(frame):
+"""Segmentation and simple shape-feature extraction."""
+gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+Page 21
+# Adaptive threshold handles moderate lighting variation
+binary = cv2.adaptiveThreshold(
+gray, 255,
+cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+cv2.THRESH_BINARY,
+31, 5
+)
+
+# Edge segmentation
+edges = cv2.Canny(gray, 80, 160)
+
+# Morphological cleanup
+kernel = np.ones((3, 3), np.uint8)
+clean = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
+clean = cv2.morphologyEx(clean, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+# Contour-based features
+contours, _ = cv2.findContours(
+clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+)
+
+features = []
+for c in contours:
+area = cv2.contourArea(c)
+if area < 300:
+continue
+
+perimeter = cv2.arcLength(c, True)
+x, y, w, h = cv2.boundingRect(c)
+aspect_ratio = w / h if h else 0
+features.append({
+"area": float(area),
+"perimeter": float(perimeter),
+
+Page 22
+
+"x": int(x), "y": int(y),
+"w": int(w), "h": int(h),
+"aspect_ratio": float(aspect_ratio)
+})
+
+return binary, edges, features
+
+def motion_mask(frame, bg_subtractor):
+"""Foreground mask for dynamic scenes."""
+mask = bg_subtractor.apply(frame)
+kernel = np.ones((5, 5), np.uint8)
+mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel)
+return mask
+
+def draw_yolo_results(frame, result):
+"""Draw detections and return target-object counts."""
+counts = Counter()
+
+if result.boxes is None:
+return frame, counts
+
+names = result.names
+
+for box in result.boxes:
+cls_id = int(box.cls[0].item())
+conf = float(box.conf[0].item())
+label = names[cls_id]
+
+if label not in TARGET_CLASSES or conf < 0.35:
+continue
+
+Page 23
+x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+counts[label] += 1
+
+cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+text = f"{label} {conf:.2f}"
+cv2.putText(
+frame, text, (x1, max(20, y1 - 8)),
+cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2
+)
+
+return frame, counts
+
+def process_source(source, output_dir, model_path="yolov8n.pt"):
+os.makedirs(output_dir, exist_ok=True)
+
+# YOLO model is downloaded automatically on first run if unavailable.
+model = YOLO(model_path)
+
+bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+history=500, varThreshold=40, detectShadows=True
+)
+
+is_image = isinstance(source, str) and source.lower().endswith(
+(".jpg", ".jpeg", ".png", ".bmp", ".webp")
+)
+
+log_path = os.path.join(output_dir, "detections.csv")
+csv_file = open(log_path, "w", newline="", encoding="utf-8")
+writer = csv.writer(csv_file)
+writer.writerow(["frame", "object", "confidence", "fps"])
+
+Page 24
+
+frame_count = 0
+total_time = 0.0
+total_objects = Counter()
+
+if is_image:
+cap = None
+frame = cv2.imread(source)
+if frame is None:
+raise FileNotFoundError(f"Could not read image: {source}")
+else:
+cap = cv2.VideoCapture(source)
+if not cap.isOpened():
+raise RuntimeError(f"Could not open video/camera: {source}")
+
+while True:
+if cap is not None:
+ok, frame = cap.read()
+if not ok:
+break
+
+start = time.perf_counter()
+
+enhanced = enhance_image(frame)
+binary, edges, features = traditional_processing(enhanced)
+
+if cap is not None:
+motion = motion_mask(enhanced, bg_subtractor)
+else:
+motion = np.zeros(enhanced.shape[:2], dtype=np.uint8)
+
+# Recognition engine
+result = model.predict(
+source=enhanced,
+
+Page 25
+
+conf=0.35,
+imgsz=640,
+verbose=False
+)[0]
+
+annotated = enhanced.copy()
+annotated, counts = draw_yolo_results(annotated, result)
+
+elapsed = time.perf_counter() - start
+total_time += elapsed
+frame_count += 1
+fps = 1.0 / elapsed if elapsed > 0 else 0.0
+
+for box in result.boxes if result.boxes is not None else []:
+cls_id = int(box.cls[0].item())
+conf = float(box.conf[0].item())
+label = result.names[cls_id]
+if label in TARGET_CLASSES and conf >= 0.35:
+writer.writerow([frame_count, label, f"{conf:.3f}", f"{fps:.2f}"])
+
+total_objects.update(counts)
+
+# Overlay performance information
+info = f"FPS: {fps:.2f} | Objects: {sum(counts.values())}"
+cv2.putText(
+annotated, info, (15, 30),
+cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2
+)
+
+# Save representative outputs
+if frame_count == 1:
+cv2.imwrite(os.path.join(output_dir, "01_enhanced_and_detected.jpg"), annotated)
+cv2.imwrite(os.path.join(output_dir, "02_edges.jpg"), edges)
+
+Page 26
+
+cv2.imwrite(os.path.join(output_dir, "03_threshold.jpg"), binary)
+cv2.imwrite(os.path.join(output_dir, "04_motion_mask.jpg"), motion)
+
+if cap is not None:
+cv2.imshow("Campus Traffic Monitoring", annotated)
+key = cv2.waitKey(1) & 0xFF
+if key == ord("q"):
+break
+else:
+cv2.imwrite(os.path.join(output_dir, "05_final_detection.jpg"), annotated)
+break
+
+csv_file.close()
+
+if cap is not None:
+cap.release()
+cv2.destroyAllWindows()
+
+avg_fps = frame_count / total_time if total_time > 0 else 0.0
+
+print("\n===== FINAL RESULTS =====")
+print("Frames processed :", frame_count)
+print("Average FPS :", round(avg_fps, 2))
+print("Average latency :", round(1000 / avg_fps, 2) if avg_fps else 0, "ms/frame")
+print("Detected objects :", dict(total_objects))
+print("Traditional features extracted (last frame):", len(features))
+print("Saved outputs in :", os.path.abspath(output_dir))
+print("Detection log :", os.path.abspath(log_path))
+
+if __name__ == "__main__":
+parser = argparse.ArgumentParser(
+description="OpenCV + YOLO campus security and traffic monitoring"
+
+Page 27
+
+)
+parser.add_argument("--source", required=True,
+help="Path to image/video, or camera index such as 0")
+parser.add_argument("--output", default="outputs",
+help="Folder for generated outputs")
+parser.add_argument("--model", default="yolov8n.pt",
+help="YOLO model file")
+args = parser.parse_args()
+
+source = args.source
+if source.isdigit():
+source = int(source)
+
+process_source(source, args.output, args.model)
